@@ -1,0 +1,10 @@
+; This is a comment.
+
+def add(x: int, y: int) : int {
+    return x + y;
+}
+
+def main() : void {
+    let x = add(34, 35);
+    println(x);
+}

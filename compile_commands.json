@@ -1,0 +1,96 @@
+[
+  {
+    "arguments": [
+      "/usr/sbin/cc",
+      "-I/home/fluorine/programming/duktape/src",
+      "-I/home/fluorine/programming/duktape/lib",
+      "-c",
+      "-o",
+      "CMakeFiles/duktape.dir/src/common.c.o",
+      "/home/fluorine/programming/duktape/src/common.c"
+    ],
+    "directory": "/home/fluorine/programming/duktape/build",
+    "file": "/home/fluorine/programming/duktape/src/common.c",
+    "output": "/home/fluorine/programming/duktape/build/CMakeFiles/duktape.dir/src/common.c.o"
+  },
+  {
+    "arguments": [
+      "/usr/sbin/cc",
+      "-I/home/fluorine/programming/duktape/src",
+      "-I/home/fluorine/programming/duktape/lib",
+      "-c",
+      "-o",
+      "CMakeFiles/duktape.dir/src/compiler.c.o",
+      "/home/fluorine/programming/duktape/src/compiler.c"
+    ],
+    "directory": "/home/fluorine/programming/duktape/build",
+    "file": "/home/fluorine/programming/duktape/src/compiler.c",
+    "output": "/home/fluorine/programming/duktape/build/CMakeFiles/duktape.dir/src/compiler.c.o"
+  },
+  {
+    "arguments": [
+      "/usr/sbin/cc",
+      "-I/home/fluorine/programming/duktape/src",
+      "-I/home/fluorine/programming/duktape/lib",
+      "-c",
+      "-o",
+      "CMakeFiles/duktape.dir/src/main.c.o",
+      "/home/fluorine/programming/duktape/src/main.c"
+    ],
+    "directory": "/home/fluorine/programming/duktape/build",
+    "file": "/home/fluorine/programming/duktape/src/main.c",
+    "output": "/home/fluorine/programming/duktape/build/CMakeFiles/duktape.dir/src/main.c.o"
+  },
+  {
+    "arguments": [
+      "/usr/sbin/cc",
+      "-c",
+      "-o",
+      "lib/dynarray/CMakeFiles/dynarray.dir/dynarray.c.o",
+      "/home/fluorine/programming/duktape/lib/dynarray/dynarray.c"
+    ],
+    "directory": "/home/fluorine/programming/duktape/build",
+    "file": "/home/fluorine/programming/duktape/lib/dynarray/dynarray.c",
+    "output": "/home/fluorine/programming/duktape/build/lib/dynarray/CMakeFiles/dynarray.dir/dynarray.c.o"
+  },
+  {
+    "arguments": [
+      "/usr/sbin/cc",
+      "-I/home/fluorine/programming/duktape/src",
+      "-I/home/fluorine/programming/duktape/lib",
+      "-c",
+      "-o",
+      "CMakeFiles/duktape.dir/src/ast.c.o",
+      "/home/fluorine/programming/duktape/src/ast.c"
+    ],
+    "directory": "/home/fluorine/programming/duktape/build",
+    "file": "/home/fluorine/programming/duktape/src/ast.c",
+    "output": "/home/fluorine/programming/duktape/build/CMakeFiles/duktape.dir/src/ast.c.o"
+  },
+  {
+    "arguments": [
+      "/usr/sbin/cc",
+      "-I/home/fluorine/programming/duktape/src",
+      "-I/home/fluorine/programming/duktape/lib",
+      "-c",
+      "-o",
+      "CMakeFiles/duktape.dir/src/codegen.c.o",
+      "/home/fluorine/programming/duktape/src/codegen.c"
+    ],
+    "directory": "/home/fluorine/programming/duktape/build",
+    "file": "/home/fluorine/programming/duktape/src/codegen.c",
+    "output": "/home/fluorine/programming/duktape/build/CMakeFiles/duktape.dir/src/codegen.c.o"
+  },
+  {
+    "arguments": [
+      "/usr/sbin/cc",
+      "-c",
+      "-o",
+      "lib/sv/CMakeFiles/sv.dir/sv.c.o",
+      "/home/fluorine/programming/duktape/lib/sv/sv.c"
+    ],
+    "directory": "/home/fluorine/programming/duktape/build",
+    "file": "/home/fluorine/programming/duktape/lib/sv/sv.c",
+    "output": "/home/fluorine/programming/duktape/build/lib/sv/CMakeFiles/sv.dir/sv.c.o"
+  }
+]
