@@ -22,6 +22,8 @@ typedef struct {
     int size;
 } type_info_t;
 
+type_info_t get_builtin_type_info(type_kind_t);
+
 typedef struct {
     sv_t name;
     type_info_t type;
@@ -91,8 +93,13 @@ typedef enum {
     COMP_ERROR_TYPE_MISMATCH,
     COMP_ERROR_TYPE_INVALID_OPERANDS,
     COMP_ERROR_VAR_ALREADY_EXISTS,
+    COMP_ERROR_VAR_NOT_EXISTS,
+    COMP_ERROR_BLOCK,
     COMP_ERROR_OK,
 } compile_error_t;
 
 compile_error_t compile_expression(compiler_t*, type_info_t*, expression_t*);
-compile_error_t compile_let_assigment(compiler_t*, let_assignment_t*);
+compile_error_t compile_block(compiler_t*, type_info_t*, block_t*);
+compile_error_t compile_let_assignment(compiler_t*, let_assignment_t*);
+compile_error_t compile_return(compiler_t*, type_info_t*, return_t*);
+compile_error_t compile_statement(compiler_t*, type_info_t*, statement_t*);

@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <codegen.h>
+#include <dynarray/dynarray.h>
 #include <stdio.h>
 
 static bool is_primary(expression_t* expr) {
@@ -41,6 +42,11 @@ static void mov_constant_to_reg(compiler_t* compiler, reg_t dst, int64_t src) {
 static void codegen_primary(compiler_t* compiler, primary_t* primary) {
     if (primary->kind == PRIMARY_INTEGER) {
         mov_constant_to_reg(compiler, compiler->last_used_reg + 1, primary->as.integer);
+    } else if (primary->kind == PRIMARY_IDENTIFIER) {
+        compiled_var_t* var = find_variable(compiler, primary->as.identifier);
+
+        // TODO: no not hardcode the addressing size
+        printf("mov %s, qword [rbp - %d]\n", reg_to_str(compiler->last_used_reg), var->address + var->type.size);
     } else {
         assert(false && "unimplemented");
     }
@@ -92,10 +98,40 @@ void codegen_expression(compiler_t* compiler, expression_t* expr) {
     }
 }
 
+void codegen_block(compiler_t* compiler, block_t* block) {
+    for (int i = 0; i < dynarray_length(block->statements); i++) {
+        codegen_statement(compiler, block->statements[i]);
+    }
+}
+
 void codegen_let_assignment(compiler_t* compiler, let_assignment_t* let_assignment) {
     codegen_expression(compiler, let_assignment->expr);
 
     compiled_var_t* var = find_variable(compiler, let_assignment->name);
 
     printf("mov [rbp - %d], rax\n", var->address + var->type.size);
+}
+
+void codegen_return(compiler_t* compiler, return_t* ret) {
+    if (ret->expr) {
+        codegen_expression(compiler, ret->expr);
+    }
+
+    printf("mov rsp, rbp\n");
+    printf("pop rbp\n");
+    printf("ret\n");
+}
+
+void codegen_statement(compiler_t* compiler, statement_t* stmt) {
+    switch (stmt->kind) {
+        case STMT_BLOCK:
+            codegen_block(compiler, stmt->as.block);
+            break;
+        case STMT_LET_ASSIGNMENT:
+            codegen_let_assignment(compiler, stmt->as.let_assignment);
+            break;
+        case STMT_RETURN:
+            codegen_return(compiler, stmt->as.ret);
+            break;
+    }
 }

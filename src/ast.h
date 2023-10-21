@@ -23,6 +23,8 @@ typedef enum {
 
 typedef struct {
     primary_kind_t kind;
+    location_t location;
+
     union {
         int64_t integer;
         double floating;
@@ -31,7 +33,7 @@ typedef struct {
     } as;
 } primary_t;
 
-primary_t* primary_make(primary_kind_t);
+primary_t* primary_make(primary_kind_t, location_t);
 void primary_free(primary_t*);
 
 typedef enum {
@@ -52,11 +54,13 @@ typedef enum {
 
 typedef struct {
     binary_op_t op;
+    location_t location;
+
     expression_t* lhs;
     expression_t* rhs;
 } binary_t;
 
-binary_t* binary_make(binary_op_t, expression_t*, expression_t*);
+binary_t* binary_make(binary_op_t, location_t, expression_t*, expression_t*);
 void binary_free(binary_t*);
 
 typedef enum {
@@ -77,6 +81,15 @@ struct expression_t {
 expression_t* expression_make(expression_kind_t, location_t);
 void expression_free(expression_t*);
 
+typedef struct statement_t statement_t;
+
+typedef struct {
+    statement_t** statements;
+} block_t;
+
+block_t* block_make();
+void block_free(block_t*);
+
 typedef struct {
     sv_t name;
     location_t location;
@@ -85,3 +98,31 @@ typedef struct {
 
 let_assignment_t* let_assignment_make(sv_t, location_t, expression_t*);
 void let_assignment_free(let_assignment_t*);
+
+typedef struct {
+    expression_t* expr;
+    location_t location;
+} return_t;
+
+return_t* return_make(expression_t*, location_t);
+void return_free(return_t*);
+
+typedef enum {
+    STMT_BLOCK,
+    STMT_LET_ASSIGNMENT,
+    STMT_RETURN,
+} statement_kind_t;
+
+struct statement_t {
+    statement_kind_t kind;
+    location_t location;
+
+    union {
+        block_t* block;
+        let_assignment_t* let_assignment;
+        return_t* ret;
+    } as;
+};
+
+statement_t* statement_make(statement_kind_t, location_t);
+void statement_free(statement_t*);

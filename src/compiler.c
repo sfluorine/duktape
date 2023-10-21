@@ -43,6 +43,10 @@ static compile_error_t check_valid_binop(binary_op_t op, type_info_t lhs, type_i
     return COMP_ERROR_OK;
 }
 
+type_info_t get_builtin_type_info(type_kind_t kind) {
+    return type_infos[kind];
+}
+
 compiled_var_t compiled_var_make(sv_t name, type_info_t type, int address) {
     return (compiled_var_t) {
         .name = name,
@@ -139,6 +143,17 @@ compiled_var_t* find_variable(compiler_t* compiler, sv_t name) {
     return var;
 }
 
+static compile_error_t resolve_variable(compiler_t* compiler, type_info_t* type_info, primary_t* primary) {
+    compiled_var_t* var = find_variable(compiler, primary->as.identifier);
+    if (!var) {
+        fprintf(stderr, LOCATION_FMT" ERROR: referenced variable '"SV_FMT"' does not exists\n", LOCATION_ARG(primary->location), SV_ARG(primary->as.identifier));
+        return COMP_ERROR_VAR_NOT_EXISTS;
+    }
+
+    *type_info = var->type;
+    return COMP_ERROR_OK;
+}
+
 compile_error_t compile_expression(compiler_t* compiler, type_info_t* type_info, expression_t* expr) {
     if (expr->kind == EXPR_PRIMARY) {
         primary_t* primary = expr->as.primary;
@@ -151,7 +166,7 @@ compile_error_t compile_expression(compiler_t* compiler, type_info_t* type_info,
                 *type_info = type_infos[TYPE_KIND_FLOAT];
                 return COMP_ERROR_OK;
             case PRIMARY_IDENTIFIER:
-                assert(false && "unimplemented");
+                return resolve_variable(compiler, type_info, primary);
             case PRIMARY_FUNCALL:
                 assert(false && "unimplemented");
         }
@@ -159,19 +174,25 @@ compile_error_t compile_expression(compiler_t* compiler, type_info_t* type_info,
         binary_t* binary = expr->as.binary;
 
         type_info_t lhs;
-        compile_expression(compiler, &lhs, binary->lhs);
+        compile_error_t err = compile_expression(compiler, &lhs, binary->lhs);
+        if (err != COMP_ERROR_OK) {
+            return err;
+        }
 
         type_info_t rhs;
-        compile_expression(compiler, &rhs, binary->rhs);
+        err = compile_expression(compiler, &rhs, binary->rhs);
+        if (err != COMP_ERROR_OK) {
+            return err;
+        }
 
         compile_error_t error = check_valid_binop(binary->op, lhs, rhs);
 
         switch (error) {
             case COMP_ERROR_TYPE_MISMATCH:
-                fprintf(stderr, LOCATION_FMT" ERROR: binary expr type mismatch:\n  lhs -> %s\n  rhs -> %s\n", LOCATION_ARG(expr->location), lhs.repr, rhs.repr);
+                fprintf(stderr, LOCATION_FMT" ERROR: binary expr type mismatch:\n  lhs -> %s\n  rhs -> %s\n", LOCATION_ARG(binary->location), lhs.repr, rhs.repr);
                 return error;
             case COMP_ERROR_TYPE_INVALID_OPERANDS:
-                fprintf(stderr, LOCATION_FMT" ERROR: binary expr invalid operands:\n  lhs -> %s\n  rhs -> %s\n", LOCATION_ARG(expr->location), lhs.repr, rhs.repr);
+                fprintf(stderr, LOCATION_FMT" ERROR: binary expr invalid operands:\n  lhs -> %s\n  rhs -> %s\n", LOCATION_ARG(binary->location), lhs.repr, rhs.repr);
                 return error;
             default:
                 *type_info = lhs;
@@ -180,7 +201,19 @@ compile_error_t compile_expression(compiler_t* compiler, type_info_t* type_info,
     }
 }
 
-compile_error_t compile_let_assigment(compiler_t* compiler, let_assignment_t* let_assignment) {
+compile_error_t compile_block(compiler_t* compiler, type_info_t* type_info, block_t* block) {
+    compile_error_t error = COMP_ERROR_OK;
+
+    for (int i = 0; i < dynarray_length(block->statements); i++) {
+        if (!compile_statement(compiler, type_info, block->statements[i])) {
+            error = COMP_ERROR_BLOCK;
+        }
+    }
+
+    return error;
+}
+
+compile_error_t compile_let_assignment(compiler_t* compiler, let_assignment_t* let_assignment) {
     type_info_t expr_type = {0};
     compile_error_t error = compile_expression(compiler, &expr_type, let_assignment->expr);
 
@@ -197,4 +230,23 @@ compile_error_t compile_let_assigment(compiler_t* compiler, let_assignment_t* le
     insert_var(compiler, compiled_var);
 
     return COMP_ERROR_OK;
+}
+
+compile_error_t compile_return(compiler_t* compiler, type_info_t* type_info, return_t* ret) {
+    if (ret->expr) {
+        return compile_expression(compiler, type_info, ret->expr);
+    }
+
+    return COMP_ERROR_OK;
+}
+
+compile_error_t compile_statement(compiler_t* compiler, type_info_t* type_info, statement_t* stmt) {
+    switch (stmt->kind) {
+        case STMT_BLOCK:
+            return compile_block(compiler, type_info, stmt->as.block);
+        case STMT_LET_ASSIGNMENT:
+            return compile_let_assignment(compiler, stmt->as.let_assignment);
+        case STMT_RETURN:
+            return compile_return(compiler, type_info, stmt->as.ret);
+    }
 }
