@@ -76,3 +76,12 @@ struct expression_t {
 
 expression_t* expression_make(expression_kind_t, location_t);
 void expression_free(expression_t*);
+
+typedef struct {
+    sv_t name;
+    location_t location;
+    expression_t* expr;
+} let_assignment_t;
+
+let_assignment_t* let_assignment_make(sv_t, location_t, expression_t*);
+void let_assignment_free(let_assignment_t*);

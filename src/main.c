@@ -32,12 +32,17 @@ int main() {
 
     root->as.binary = root_binary;
 
-    if (codegen_expression(&compiler, root) != CODEGEN_ERR_OK) {
-        fprintf(stderr, "ERROR: codegen failed\n");
-    }
+    push_scope(&compiler);
 
-    expression_free(root);
+    let_assignment_t* let_assignment = let_assignment_make(sv_make_from("_noice"), location_make(2, 35), root);
+    compile_let_assigment(&compiler, let_assignment);
+    codegen_let_assignment(&compiler, let_assignment);
+
+    let_assignment_free(let_assignment);
+
+    pop_scope(&compiler);
 
     compiler_deinit(&compiler);
+
     return 0;
 }

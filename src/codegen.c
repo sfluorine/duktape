@@ -73,14 +73,7 @@ static void codegen_binop(compiler_t* compiler, binary_op_t op) {
     }
 }
 
-codegen_error_t codegen_expression(compiler_t* compiler, expression_t* expr) {
-    type_info_t expr_type = {0};
-    typecheck_error_t err = compile_expression(compiler, &expr_type, expr);
-
-    if (err != TYPE_ERROR_OK) {
-        return CODEGEN_ERR_TYPECHECK;
-    }
-
+void codegen_expression(compiler_t* compiler, expression_t* expr) {
     if (expr->kind == EXPR_PRIMARY) {
         primary_t* primary = expr->as.primary;
         codegen_primary(compiler, primary);
@@ -89,7 +82,6 @@ codegen_error_t codegen_expression(compiler_t* compiler, expression_t* expr) {
         if (is_primary(binary->lhs) && !is_primary(binary->rhs)) {
             codegen_expression(compiler, binary->rhs);
             codegen_expression(compiler, binary->lhs);
-
             printf("xchg %s, %s\n", reg_to_str(compiler->last_used_reg - 1), reg_to_str(compiler->last_used_reg));
         } else {
             codegen_expression(compiler, binary->lhs);
@@ -98,6 +90,12 @@ codegen_error_t codegen_expression(compiler_t* compiler, expression_t* expr) {
 
         codegen_binop(compiler, binary->op);
     }
+}
 
-    return CODEGEN_ERR_OK;
+void codegen_let_assignment(compiler_t* compiler, let_assignment_t* let_assignment) {
+    codegen_expression(compiler, let_assignment->expr);
+
+    compiled_var_t* var = find_variable(compiler, let_assignment->name);
+
+    printf("mov [rbp - %d], rax\n", var->address + var->type.size);
 }

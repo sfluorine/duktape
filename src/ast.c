@@ -73,3 +73,17 @@ void expression_free(expression_t* expr) {
 
     free(expr);
 }
+
+let_assignment_t* let_assignment_make(sv_t name, location_t location, expression_t* expr) {
+    let_assignment_t* let_assignment = malloc(sizeof(let_assignment_t));
+    let_assignment->name = name;
+    let_assignment->location = location;
+    let_assignment->expr = expr;
+
+    return let_assignment;
+}
+
+void let_assignment_free(let_assignment_t* let_assignment) {
+    expression_free(let_assignment->expr);
+    free(let_assignment);
+}
