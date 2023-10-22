@@ -63,7 +63,7 @@ expression_t* parse_primary(parser_t* parser) {
         if (expect(parser, TOK_LPAREN)) {
             advance(parser);
 
-            funcall_t* funcall = funcall_make(id.span);
+            funcall_t* funcall = funcall_make(id.span, location);
 
             bool first = true;
             while (!is_eof(parser) && !expect(parser, TOK_RPAREN)) {

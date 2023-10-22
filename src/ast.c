@@ -2,9 +2,10 @@
 #include <dynarray/dynarray.h>
 #include <stdlib.h>
 
-funcall_t* funcall_make(sv_t name) {
+funcall_t* funcall_make(sv_t name, location_t location) {
     funcall_t* funcall = malloc(sizeof(funcall_t));
     funcall->name = name;
+    funcall->location = location;
     funcall->arguments = dynarray_create(expression_t*);
 
     return funcall;

@@ -8,10 +8,11 @@ typedef struct expression_t expression_t;
 
 typedef struct {
     sv_t name;
+    location_t location;
     expression_t** arguments;
 } funcall_t;
 
-funcall_t* funcall_make(sv_t);
+funcall_t* funcall_make(sv_t, location_t);
 void funcall_free(funcall_t*);
 
 typedef enum {

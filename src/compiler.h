@@ -23,8 +23,6 @@ typedef struct {
     int size;
 } type_info_t;
 
-type_info_t get_builtin_type_info(type_kind_t);
-
 typedef struct {
     sv_t name;
     type_info_t type;
@@ -90,17 +88,28 @@ void pop_scope(compiler_t*);
 void insert_var(compiler_t*, compiled_var_t);
 compiled_var_t* find_variable(compiler_t*, sv_t);
 
+void insert_fun(compiler_t*, compiled_function_t*);
+compiled_function_t* find_function(compiler_t*, sv_t);
+
 typedef enum {
     COMP_ERROR_TYPE_MISMATCH,
     COMP_ERROR_TYPE_INVALID_OPERANDS,
     COMP_ERROR_VAR_ALREADY_EXISTS,
     COMP_ERROR_VAR_NOT_EXISTS,
-    COMP_ERROR_BLOCK,
+    COMP_ERROR_TYPE_NOT_EXISTS,
+    COMP_ERROR_UNEXPECTED_TYPE,
+    COMP_ERROR_FUN_ALREADY_EXISTS,
+    COMP_ERROR_FUN_NOT_EXISTS,
+    COMP_ERROR_FUN_ARITY_NOT_MATCH,
     COMP_ERROR_OK,
 } compile_error_t;
 
+compile_error_t compile_funcall(compiler_t*, type_info_t*, funcall_t*);
 compile_error_t compile_expression(compiler_t*, type_info_t*, expression_t*);
 compile_error_t compile_block(compiler_t*, type_info_t*, block_t*);
 compile_error_t compile_let_assignment(compiler_t*, let_assignment_t*);
 compile_error_t compile_return(compiler_t*, type_info_t*, return_t*);
 compile_error_t compile_statement(compiler_t*, type_info_t*, statement_t*);
+compile_error_t compile_parameter(compiler_t*, compiled_parameter_t*, parameter_t);
+compile_error_t compile_function_signature(compiler_t*, type_info_t*, compiled_parameter_t**, function_signature_t*);
+compile_error_t compile_function_definition(compiler_t*, function_definition_t*);

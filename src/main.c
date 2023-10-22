@@ -50,11 +50,21 @@ int main(int argc, char** argv) {
     compiler_t compiler;
     compiler_init(&compiler);
 
+    push_scope(&compiler);
+
     function_definition_t* add = parse_function_definition(&parser);
+    compile_function_definition(&compiler, add);
     function_definition_free(add);
 
+    pop_scope(&compiler);
+
+    push_scope(&compiler);
+
     function_definition_t* main = parse_function_definition(&parser);
+    compile_function_definition(&compiler, main);
     function_definition_free(main);
+
+    pop_scope(&compiler);
 
     compiler_deinit(&compiler);
     parser_deinit(&parser);

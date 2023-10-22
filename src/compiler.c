@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static type_info_t type_infos[TYPE_KIND_COUNT] = {
+static type_info_t builtin_type_infos[TYPE_KIND_COUNT] = {
     [TYPE_KIND_INT]   = { .kind = TYPE_KIND_INT,   .repr = "int", .is_valid_variable_type = true,  .is_valid_return_type = true, .is_valid_arith_binop_type = true,  .is_valid_bool_binop_type = true,   .size = 8, .is_valid_lg_gt_value_type = true  },
     [TYPE_KIND_FLOAT] = { .kind = TYPE_KIND_FLOAT, .repr = "float", .is_valid_variable_type = true,  .is_valid_return_type = true, .is_valid_arith_binop_type = true,  .is_valid_bool_binop_type = true, .size = 8, .is_valid_lg_gt_value_type = true  },
     [TYPE_KIND_BOOL]  = { .kind = TYPE_KIND_BOOL,  .repr = "bool", .is_valid_variable_type = true,  .is_valid_return_type = true, .is_valid_arith_binop_type = false, .is_valid_bool_binop_type = true,  .size = 1, .is_valid_lg_gt_value_type = false },
@@ -59,10 +59,6 @@ static compile_error_t check_valid_binop(binary_op_t op, type_info_t lhs, type_i
     return COMP_ERROR_OK;
 }
 
-type_info_t get_builtin_type_info(type_kind_t kind) {
-    return type_infos[kind];
-}
-
 compiled_var_t compiled_var_make(sv_t name, type_info_t type, int address) {
     return (compiled_var_t) {
         .name = name,
@@ -83,9 +79,6 @@ compiled_function_t* compiled_function_make(sv_t name, type_info_t return_type) 
     function->name = name;
     function->return_type = return_type;
 
-    // allocate parameters with dynamic array.
-    function->parameters = dynarray_create(compiled_parameter_t);
-
     return function;
 }
 
@@ -103,6 +96,10 @@ void compiler_init(compiler_t* compiler) {
 }
 
 void compiler_deinit(compiler_t* compiler) {
+    for (int i = 0; i < dynarray_length(compiler->functions); i++) {
+        compiled_function_free(compiler->functions[i]);
+    }
+
     dynarray_destroy(compiler->functions);
 }
 
@@ -159,6 +156,22 @@ compiled_var_t* find_variable(compiler_t* compiler, sv_t name) {
     return var;
 }
 
+void insert_fun(compiler_t* compiler, compiled_function_t* fun) {
+    dynarray_push(compiler->functions, fun);
+}
+
+compiled_function_t* find_function(compiler_t* compiler, sv_t name) {
+    compiled_function_t* fun = NULL;
+
+    for (int i = 0; i < dynarray_length(compiler->functions); i++) {
+        if (sv_equals(compiler->functions[i]->name, name)) {
+            fun = compiler->functions[i];
+        }
+    }
+
+    return fun;
+}
+
 static compile_error_t resolve_variable(compiler_t* compiler, type_info_t* type_info, primary_t* primary) {
     compiled_var_t* var = find_variable(compiler, primary->as.identifier);
     if (!var) {
@@ -186,24 +199,66 @@ static bool is_binop_result_bool(binary_op_t op) {
     }
 }
 
+compile_error_t compile_funcall(compiler_t* compiler, type_info_t* type_info, funcall_t* funcall) {
+    compiled_function_t* fun = find_function(compiler, funcall->name);
+    if (!fun) {
+        fprintf(stderr,
+                LOCATION_FMT" ERROR: no such function '"SV_FMT"'\n",
+                LOCATION_ARG(funcall->location),
+                SV_ARG(funcall->name));
+
+        return COMP_ERROR_FUN_NOT_EXISTS;
+    }
+
+    if (dynarray_length(fun->parameters) != dynarray_length(funcall->arguments)) {
+        fprintf(stderr,
+                LOCATION_FMT" ERROR: '"SV_FMT"' expected %zu arguments, but got %zu\n",
+                LOCATION_ARG(funcall->location),
+                SV_ARG(funcall->name), dynarray_length(fun->parameters), dynarray_length(funcall->arguments));
+
+        return COMP_ERROR_FUN_ARITY_NOT_MATCH;
+    }
+
+    for (int i = 0; i < dynarray_length(funcall->arguments); i++) {
+        type_info_t expr_type = {0};
+        compile_expression(compiler, &expr_type, funcall->arguments[i]);
+
+        if (fun->parameters[i].type.kind != expr_type.kind) {
+            fprintf(stderr,
+                    LOCATION_FMT" ERROR: '"SV_FMT"' parameter type for function '"SV_FMT"' does not match. expected '%s', but got '%s'\n",
+                    LOCATION_ARG(funcall->arguments[i]->location),
+                    SV_ARG(fun->parameters[i].name),
+                    SV_ARG(fun->name),
+                    fun->parameters[i].type.repr,
+                    expr_type.repr);
+
+            return COMP_ERROR_TYPE_MISMATCH;
+        }
+    }
+
+    *type_info = fun->return_type;
+
+    return COMP_ERROR_OK;
+}
+
 compile_error_t compile_expression(compiler_t* compiler, type_info_t* type_info, expression_t* expr) {
     if (expr->kind == EXPR_PRIMARY) {
         primary_t* primary = expr->as.primary;
 
         switch (primary->kind) {
             case PRIMARY_INTEGER:
-                *type_info = type_infos[TYPE_KIND_INT];
+                *type_info = builtin_type_infos[TYPE_KIND_INT];
                 return COMP_ERROR_OK;
             case PRIMARY_FLOATING:
-                *type_info = type_infos[TYPE_KIND_FLOAT];
+                *type_info = builtin_type_infos[TYPE_KIND_FLOAT];
                 return COMP_ERROR_OK;
             case PRIMARY_IDENTIFIER:
                 return resolve_variable(compiler, type_info, primary);
             case PRIMARY_BOOLEAN:
-                *type_info = type_infos[TYPE_KIND_BOOL];
+                *type_info = builtin_type_infos[TYPE_KIND_BOOL];
                 return COMP_ERROR_OK;
             case PRIMARY_FUNCALL:
-                assert(false && "unimplemented");
+                return compile_funcall(compiler, type_info, primary->as.funcall);
         }
     } else {
         binary_t* binary = expr->as.binary;
@@ -231,7 +286,7 @@ compile_error_t compile_expression(compiler_t* compiler, type_info_t* type_info,
                 return error;
             default:
                 if (is_binop_result_bool(binary->op)) {
-                    *type_info = get_builtin_type_info(TYPE_KIND_BOOL);
+                    *type_info = builtin_type_infos[TYPE_KIND_BOOL];
                 } else {
                     *type_info = lhs;
                 }
@@ -241,15 +296,14 @@ compile_error_t compile_expression(compiler_t* compiler, type_info_t* type_info,
 }
 
 compile_error_t compile_block(compiler_t* compiler, type_info_t* type_info, block_t* block) {
-    compile_error_t error = COMP_ERROR_OK;
-
     for (int i = 0; i < dynarray_length(block->statements); i++) {
-        if (!compile_statement(compiler, type_info, block->statements[i])) {
-            error = COMP_ERROR_BLOCK;
+        compile_error_t error = compile_statement(compiler, type_info, block->statements[i]);
+        if (error != COMP_ERROR_OK) {
+            return error;
         }
     }
 
-    return error;
+    return COMP_ERROR_OK;
 }
 
 compile_error_t compile_let_assignment(compiler_t* compiler, let_assignment_t* let_assignment) {
@@ -262,7 +316,7 @@ compile_error_t compile_let_assignment(compiler_t* compiler, let_assignment_t* l
 
     if (find_variable(compiler, let_assignment->name)) {
         fprintf(stderr, 
-                LOCATION_FMT" ERROR: cannot declare '"SV_FMT"' since it's already exists\n",
+                LOCATION_FMT" ERROR: cannot declare variable '"SV_FMT"' since it's already exists\n",
                 LOCATION_ARG(let_assignment->location),
                 SV_ARG(let_assignment->name));
         return COMP_ERROR_VAR_ALREADY_EXISTS;
@@ -291,4 +345,111 @@ compile_error_t compile_statement(compiler_t* compiler, type_info_t* type_info, 
         case STMT_RETURN:
             return compile_return(compiler, type_info, stmt->as.ret);
     }
+}
+
+static type_info_t* resolve_type(compiler_t* compiler, sv_t type) {
+    if (sv_equals(type, sv_make_from("int"))) {
+        return &builtin_type_infos[TYPE_KIND_INT];
+    } else if (sv_equals(type, sv_make_from("float"))) {
+        return &builtin_type_infos[TYPE_KIND_FLOAT];
+    }  else if (sv_equals(type, sv_make_from("bool"))) {
+        return &builtin_type_infos[TYPE_KIND_BOOL];
+    } else if (sv_equals(type, sv_make_from("void"))) {
+        return &builtin_type_infos[TYPE_KIND_VOID];
+    } else {
+        return NULL;
+    }
+}
+
+compile_error_t compile_parameter(compiler_t* compiler, compiled_parameter_t* compiled_parameter, parameter_t parameter) {
+    type_info_t* type = resolve_type(compiler, parameter.type);
+    if (!type) {
+        fprintf(stderr, LOCATION_FMT" ERROR: no such type '"SV_FMT"'\n", LOCATION_ARG(parameter.location), SV_ARG(parameter.type));
+        return COMP_ERROR_TYPE_NOT_EXISTS;
+    }
+
+    if (!type->is_valid_variable_type) {
+        fprintf(stderr, LOCATION_FMT" ERROR: cannot make a parameter out of '"SV_FMT"'\n", LOCATION_ARG(parameter.location), SV_ARG(parameter.type));
+        return COMP_ERROR_UNEXPECTED_TYPE;
+    }
+
+    *compiled_parameter = compiled_parameter_make(parameter.name, *type);
+
+    return COMP_ERROR_OK;
+}
+
+compile_error_t compile_function_signature(compiler_t* compiler, type_info_t* type_info, compiled_parameter_t** parameters, function_signature_t* funsig) {
+    if (find_function(compiler, funsig->name)) {
+        fprintf(stderr,
+                LOCATION_FMT" ERROR: cannot declare function '"SV_FMT"' since it's already exists\n",
+                LOCATION_ARG(funsig->location),
+                SV_ARG(funsig->name));
+
+        return COMP_ERROR_FUN_ALREADY_EXISTS;
+    }
+
+    type_info_t* type = resolve_type(compiler, funsig->return_type);
+    if (!type) {
+        fprintf(stderr, LOCATION_FMT" ERROR: no such type '"SV_FMT"'\n", LOCATION_ARG(funsig->location), SV_ARG(funsig->return_type));
+        return COMP_ERROR_TYPE_NOT_EXISTS;
+    }
+
+    compiled_parameter_t* params = dynarray_create(compiled_parameter_t);
+    for (int i = 0; i < dynarray_length(funsig->parameters); i++) {
+        compiled_parameter_t param = {0};
+        compile_error_t error = compile_parameter(compiler, &param, funsig->parameters[i]);
+
+        if (error != COMP_ERROR_OK) {
+            return error;
+        }
+
+        for (int i = 0; i < dynarray_length(params); i++) {
+            if (sv_equals(params[i].name, param.name)) {
+                fprintf(stderr,
+                        LOCATION_FMT" ERROR: cannot declare parameter '"SV_FMT"' since it's already exists\n",
+                        LOCATION_ARG(funsig->parameters[i].location),
+                        SV_ARG(param.name));
+                return COMP_ERROR_VAR_ALREADY_EXISTS;
+            }
+        }
+
+        dynarray_push(params, param);
+    }
+
+    *type_info = *type;
+    *parameters = params;
+
+    return COMP_ERROR_OK;
+}
+
+compile_error_t compile_function_definition(compiler_t* compiler, function_definition_t* fundef) {
+    type_info_t funsig_type = {0};
+    compiled_parameter_t* params = NULL;
+
+    compile_error_t error = compile_function_signature(compiler, &funsig_type, &params, fundef->funsig);
+    if (error != COMP_ERROR_OK) {
+        return error;
+    }
+
+    for (int i = 0; i < dynarray_length(params); i++) {
+        compiled_var_t var = compiled_var_make(params[i].name, params[i].type, compiler->frame_size);
+        insert_var(compiler, var);
+    }
+
+    type_info_t return_type = builtin_type_infos[TYPE_KIND_VOID];
+    error = compile_block(compiler, &return_type, fundef->body);
+    if (error != COMP_ERROR_OK) {
+        return error;
+    }
+
+    if (funsig_type.kind != return_type.kind) {
+        fprintf(stderr, LOCATION_FMT" ERROR: unexpected return type. expected '%s', but got '%s'\n", LOCATION_ARG(fundef->location), funsig_type.repr, return_type.repr);
+        return COMP_ERROR_UNEXPECTED_TYPE;
+    }
+
+    compiled_function_t* fun = compiled_function_make(fundef->funsig->name, return_type);
+    fun->parameters = params;
+    insert_fun(compiler, fun);
+
+    return COMP_ERROR_OK;
 }
