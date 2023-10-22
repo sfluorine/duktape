@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common.h"
+#include <common.h>
 #include <sv/sv.h>
 #include <stdint.h>
 
@@ -18,6 +18,7 @@ typedef enum {
     PRIMARY_INTEGER,
     PRIMARY_FLOATING,
     PRIMARY_IDENTIFIER,
+    PRIMARY_BOOLEAN,
     PRIMARY_FUNCALL,
 } primary_kind_t;
 
@@ -29,6 +30,7 @@ typedef struct {
         int64_t integer;
         double floating;
         sv_t identifier;
+        bool boolean;
         funcall_t* funcall;
     } as;
 } primary_t;
@@ -126,3 +128,30 @@ struct statement_t {
 
 statement_t* statement_make(statement_kind_t, location_t);
 void statement_free(statement_t*);
+
+typedef struct {
+    sv_t name;
+    sv_t type;
+    location_t location;
+} parameter_t;
+
+parameter_t parameter_make(sv_t, sv_t, location_t);
+
+typedef struct {
+    location_t location;
+    sv_t name;
+    parameter_t* parameters;
+    sv_t return_type;
+} function_signature_t;
+
+function_signature_t* function_signature_make(sv_t, location_t);
+void function_signature_free(function_signature_t*);
+
+typedef struct {
+    function_signature_t* funsig;
+    block_t* body;
+    location_t location;
+} function_definition_t;
+
+function_definition_t* function_definition_make(function_signature_t*, block_t*, location_t);
+void function_definition_free(function_definition_t*);

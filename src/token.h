@@ -10,6 +10,11 @@ typedef enum {
     TOK_DEF,
     TOK_LET,
     TOK_RETURN,
+    TOK_OR,
+    TOK_AND,
+
+    TOK_TRUE,
+    TOK_FALSE,
 
     TOK_IDENTIFIER,
     TOK_INTLITERAL,
@@ -20,9 +25,17 @@ typedef enum {
     TOK_LCURLY,
     TOK_RCURLY,
 
+    TOK_EQUAL,
     TOK_COLON,
     TOK_COMMA,
     TOK_SEMICOLON,
+    TOK_BANG,
+
+    TOK_EQUAL_EQUAL,
+    TOK_BANG_EQUAL,
+
+    TOK_LESS,
+    TOK_GREATER,
 
     TOK_PLUS,
     TOK_MINUS,

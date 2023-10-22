@@ -19,6 +19,7 @@ typedef struct {
     bool is_valid_return_type;
     bool is_valid_arith_binop_type;
     bool is_valid_bool_binop_type;
+    bool is_valid_lg_gt_value_type;
     int size;
 } type_info_t;
 

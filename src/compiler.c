@@ -5,10 +5,10 @@
 #include <stdlib.h>
 
 static type_info_t type_infos[TYPE_KIND_COUNT] = {
-    [TYPE_KIND_INT]   = { .kind = TYPE_KIND_INT,   .repr = "int", .is_valid_variable_type = true,  .is_valid_return_type = true, .is_valid_arith_binop_type = true,  .is_valid_bool_binop_type = true,   .size = 8 },
-    [TYPE_KIND_FLOAT] = { .kind = TYPE_KIND_FLOAT, .repr = "float", .is_valid_variable_type = true,  .is_valid_return_type = true, .is_valid_arith_binop_type = true,  .is_valid_bool_binop_type = true, .size = 8 },
-    [TYPE_KIND_BOOL]  = { .kind = TYPE_KIND_BOOL,  .repr = "bool", .is_valid_variable_type = true,  .is_valid_return_type = true, .is_valid_arith_binop_type = false, .is_valid_bool_binop_type = true,  .size = 1 },
-    [TYPE_KIND_VOID]  = { .kind = TYPE_KIND_VOID,  .repr = "void", .is_valid_variable_type = false, .is_valid_return_type = true, .is_valid_arith_binop_type = false, .is_valid_bool_binop_type = false, .size = 0 },
+    [TYPE_KIND_INT]   = { .kind = TYPE_KIND_INT,   .repr = "int", .is_valid_variable_type = true,  .is_valid_return_type = true, .is_valid_arith_binop_type = true,  .is_valid_bool_binop_type = true,   .size = 8, .is_valid_lg_gt_value_type = true  },
+    [TYPE_KIND_FLOAT] = { .kind = TYPE_KIND_FLOAT, .repr = "float", .is_valid_variable_type = true,  .is_valid_return_type = true, .is_valid_arith_binop_type = true,  .is_valid_bool_binop_type = true, .size = 8, .is_valid_lg_gt_value_type = true  },
+    [TYPE_KIND_BOOL]  = { .kind = TYPE_KIND_BOOL,  .repr = "bool", .is_valid_variable_type = true,  .is_valid_return_type = true, .is_valid_arith_binop_type = false, .is_valid_bool_binop_type = true,  .size = 1, .is_valid_lg_gt_value_type = false },
+    [TYPE_KIND_VOID]  = { .kind = TYPE_KIND_VOID,  .repr = "void", .is_valid_variable_type = false, .is_valid_return_type = true, .is_valid_arith_binop_type = false, .is_valid_bool_binop_type = false, .size = 0, .is_valid_lg_gt_value_type = false },
 };
 
 static bool check_op_is_bool(binary_op_t op) {
@@ -27,6 +27,18 @@ static bool check_op_is_bool(binary_op_t op) {
     }
 }
 
+static bool check_op_is_lg_gt(binary_op_t op) {
+    switch (op) {
+        case BINARY_LESS:
+        case BINARY_GREATER:
+        case BINARY_LESS_EQUAL:
+        case BINARY_GREATER_EQUAL:
+            return true;
+        default:
+            return false;
+    }
+}
+
 static compile_error_t check_valid_binop(binary_op_t op, type_info_t lhs, type_info_t rhs) {
     if (lhs.kind != rhs.kind) {
         return COMP_ERROR_TYPE_MISMATCH;
@@ -37,6 +49,10 @@ static compile_error_t check_valid_binop(binary_op_t op, type_info_t lhs, type_i
     }
 
     if (!check_op_is_bool(op) && !lhs.is_valid_arith_binop_type) {
+        return COMP_ERROR_TYPE_INVALID_OPERANDS;
+    }
+
+    if (check_op_is_lg_gt(op) && !lhs.is_valid_lg_gt_value_type) {
         return COMP_ERROR_TYPE_INVALID_OPERANDS;
     }
 
@@ -154,6 +170,22 @@ static compile_error_t resolve_variable(compiler_t* compiler, type_info_t* type_
     return COMP_ERROR_OK;
 }
 
+static bool is_binop_result_bool(binary_op_t op) {
+    switch (op) {
+        case BINARY_EQUAL:
+        case BINARY_NOT_EQUAL:
+        case BINARY_LESS:
+        case BINARY_GREATER:
+        case BINARY_LESS_EQUAL:
+        case BINARY_GREATER_EQUAL:
+        case BINARY_OR:
+        case BINARY_AND:
+            return true;
+        default:
+            return false;
+    }
+}
+
 compile_error_t compile_expression(compiler_t* compiler, type_info_t* type_info, expression_t* expr) {
     if (expr->kind == EXPR_PRIMARY) {
         primary_t* primary = expr->as.primary;
@@ -167,6 +199,9 @@ compile_error_t compile_expression(compiler_t* compiler, type_info_t* type_info,
                 return COMP_ERROR_OK;
             case PRIMARY_IDENTIFIER:
                 return resolve_variable(compiler, type_info, primary);
+            case PRIMARY_BOOLEAN:
+                *type_info = type_infos[TYPE_KIND_BOOL];
+                return COMP_ERROR_OK;
             case PRIMARY_FUNCALL:
                 assert(false && "unimplemented");
         }
@@ -192,10 +227,14 @@ compile_error_t compile_expression(compiler_t* compiler, type_info_t* type_info,
                 fprintf(stderr, LOCATION_FMT" ERROR: binary expr type mismatch:\n  lhs -> %s\n  rhs -> %s\n", LOCATION_ARG(binary->location), lhs.repr, rhs.repr);
                 return error;
             case COMP_ERROR_TYPE_INVALID_OPERANDS:
-                fprintf(stderr, LOCATION_FMT" ERROR: binary expr invalid operands:\n  lhs -> %s\n  rhs -> %s\n", LOCATION_ARG(binary->location), lhs.repr, rhs.repr);
+                fprintf(stderr, LOCATION_FMT" ERROR: binary expr unsupported operands:\n  lhs -> %s\n  rhs -> %s\n", LOCATION_ARG(binary->location), lhs.repr, rhs.repr);
                 return error;
             default:
-                *type_info = lhs;
+                if (is_binop_result_bool(binary->op)) {
+                    *type_info = get_builtin_type_info(TYPE_KIND_BOOL);
+                } else {
+                    *type_info = lhs;
+                }
                 return error;
         }
     }
@@ -222,7 +261,10 @@ compile_error_t compile_let_assignment(compiler_t* compiler, let_assignment_t* l
     }
 
     if (find_variable(compiler, let_assignment->name)) {
-        fprintf(stderr, LOCATION_FMT" ERROR: cannot declare '"SV_FMT"' since it's already exists\n", LOCATION_ARG(let_assignment->location), SV_ARG(let_assignment->name));
+        fprintf(stderr, 
+                LOCATION_FMT" ERROR: cannot declare '"SV_FMT"' since it's already exists\n",
+                LOCATION_ARG(let_assignment->location),
+                SV_ARG(let_assignment->name));
         return COMP_ERROR_VAR_ALREADY_EXISTS;
     }
 

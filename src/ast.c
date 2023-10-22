@@ -11,6 +11,10 @@ funcall_t* funcall_make(sv_t name) {
 }
 
 void funcall_free(funcall_t* funcall) {
+    for (int i = 0; i < dynarray_length(funcall->arguments); i++) {
+        expression_free(funcall->arguments[i]);
+    }
+
     dynarray_destroy(funcall->arguments);
     free(funcall);
 }
@@ -30,6 +34,8 @@ void primary_free(primary_t* primary) {
         case PRIMARY_FLOATING:
             break;
         case PRIMARY_IDENTIFIER:
+            break;
+        case PRIMARY_BOOLEAN:
             break;
         case PRIMARY_FUNCALL:
             funcall_free(primary->as.funcall);
@@ -139,4 +145,41 @@ void statement_free(statement_t* stmt) {
     }
 
     free(stmt);
+}
+
+parameter_t parameter_make(sv_t name, sv_t type, location_t location) {
+    return (parameter_t) {
+        .name = name,
+        .type = type,
+        .location = location,
+    };
+}
+
+function_signature_t* function_signature_make(sv_t name, location_t location) {
+    function_signature_t* funsig = malloc(sizeof(function_signature_t));
+    funsig->name = name;
+    funsig->location = location;
+    funsig->parameters = dynarray_create(parameter_t);
+
+    return funsig;
+}
+
+void function_signature_free(function_signature_t* funsig) {
+    dynarray_destroy(funsig->parameters);
+    free(funsig);
+}
+
+function_definition_t* function_definition_make(function_signature_t* funsig, block_t* body, location_t location) {
+    function_definition_t* fundef = malloc(sizeof(function_definition_t));
+    fundef->funsig = funsig;
+    fundef->body = body;
+    fundef->location = location;
+
+    return fundef;
+}
+
+void function_definition_free(function_definition_t* fundef) {
+    function_signature_free(fundef->funsig);
+    block_free(fundef->body);
+    free(fundef);
 }

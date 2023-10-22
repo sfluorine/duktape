@@ -12,7 +12,10 @@ add_executable(
     src/codegen.c
     src/common.c
     src/compiler.c
+    src/lexer.c
     src/main.c
+    src/parser.c
+    src/token.c
     )
 
 target_include_directories(duktape PUBLIC src/)
